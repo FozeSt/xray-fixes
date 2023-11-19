@@ -44,6 +44,8 @@ float4 main( vf I ) : SV_Target
 	float4	base= s_base.Sample( smp_base, I.tbase);
 	float3	n0	= s_nmap.Sample( smp_base, I.tnorm0);
 	float3	n1	= s_nmap.Sample( smp_base, I.tnorm1);
+			n0.xy	= n0.xy + (0.5h / 255.0h);
+			n1.xy	= n1.xy + (0.5h / 255.0h);	
 	float3	Navg	= n0 + n1 - 1;
 
 	float3	Nw	= mul (float3x3(I.M1, I.M2, I.M3), Navg);
