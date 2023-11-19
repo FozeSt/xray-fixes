@@ -66,9 +66,9 @@ void	CRenderTarget::phase_combine	()
    else
    {
       FLOAT ColorRGBA[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-      HW.pDevice->ClearRenderTargetView(rt_Generic_0->pRT, ColorRGBA);
-      HW.pDevice->ClearRenderTargetView(rt_Generic_1->pRT, ColorRGBA);
-      u_setrt				( rt_Generic_0,rt_Generic_1,0,RImplementation.Target->rt_MSAADepth->pZRT );
+      HW.pDevice->ClearRenderTargetView(rt_Generic_0_r->pRT, ColorRGBA);
+      HW.pDevice->ClearRenderTargetView(rt_Generic_1_r->pRT, ColorRGBA);
+      u_setrt				( rt_Generic_0_r,rt_Generic_1_r,0,RImplementation.Target->rt_MSAADepth->pZRT );
    }
 	RCache.set_CullMode	( CULL_NONE );
 	RCache.set_Stencil	( FALSE		);
@@ -251,7 +251,7 @@ void	CRenderTarget::phase_combine	()
       if( !RImplementation.o.dx10_msaa )
    		u_setrt							(rt_Generic_0,0,0,HW.pBaseZB);		// LDR RT
       else
-         u_setrt							(rt_Generic_0,0,0,RImplementation.Target->rt_MSAADepth->pZRT);		// LDR RT
+         u_setrt							(rt_Generic_0_r,0,0,RImplementation.Target->rt_MSAADepth->pZRT);		// LDR RT
 		RCache.set_CullMode				(CULL_CCW);
 		RCache.set_Stencil				(FALSE);
 		RCache.set_ColorWriteEnable		();
@@ -272,8 +272,8 @@ void	CRenderTarget::phase_combine	()
    if( RImplementation.o.dx10_msaa )
    {
       // we need to resolve rt_Generic_1 into rt_Generic_1_r
-      HW.pDevice->ResolveSubresource( rt_Generic_1_r->pTexture->surface_get(), 0, rt_Generic_1->pTexture->surface_get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM );
-      HW.pDevice->ResolveSubresource( rt_Generic_0_r->pTexture->surface_get(), 0, rt_Generic_0->pTexture->surface_get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM );
+      HW.pDevice->ResolveSubresource( rt_Generic_1->pTexture->surface_get(), 0, rt_Generic_1_r->pTexture->surface_get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM );
+      HW.pDevice->ResolveSubresource( rt_Generic_0->pTexture->surface_get(), 0, rt_Generic_0_r->pTexture->surface_get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM );
    }
 
    // for msaa we need a resolved color buffer - Holger
@@ -283,25 +283,30 @@ void	CRenderTarget::phase_combine	()
 	//u_setrt(rt_Generic_1,0,0,HW.pBaseZB);
 
 	// Distortion filter
-	BOOL	bDistort	= RImplementation.o.distortion_enabled;				// This can be modified
+	BOOL	bDistort = RImplementation.o.distortion_enabled;				// This can be modified
 	{
-		if		((0==RImplementation.mapDistort.size()) && !_menu_pp)		
-			bDistort= FALSE;
-		if (bDistort)		
+		if ((0 == RImplementation.mapDistort.size()) && !_menu_pp)
+			bDistort = FALSE;
+		if (bDistort)
 		{
 			PIX_EVENT(render_distort_objects);
-      if( !RImplementation.o.dx10_msaa )
-				u_setrt						(rt_Generic_1,0,0,HW.pBaseZB);		// Now RT is a distortion mask
+			FLOAT ColorRGBA[4] = { 127.0f / 255.0f, 127.0f / 255.0f, 0.0f, 127.0f / 255.0f };
+			if (!RImplementation.o.dx10_msaa)
+			{
+				u_setrt(rt_Generic_1, 0, 0, HW.pBaseZB);		// Now RT is a distortion mask
+				HW.pDevice->ClearRenderTargetView(rt_Generic_1->pRT, ColorRGBA);
+			}
 			else
-				u_setrt						(rt_Generic_1,0,0,RImplementation.Target->rt_MSAADepth->pZRT);		// Now RT is a distortion mask
-			RCache.set_CullMode			(CULL_CCW);
-			RCache.set_Stencil			(FALSE);
-			RCache.set_ColorWriteEnable	();
+			{
+				u_setrt(rt_Generic_1_r, 0, 0, RImplementation.Target->rt_MSAADepth->pZRT);		// Now RT is a distortion mask
+				HW.pDevice->ClearRenderTargetView(rt_Generic_1_r->pRT, ColorRGBA);
+			}
+			RCache.set_CullMode(CULL_CCW);
+			RCache.set_Stencil(FALSE);
+			RCache.set_ColorWriteEnable();
 			//CHK_DX(HW.pDevice->Clear	( 0L, NULL, D3DCLEAR_TARGET, color_rgba(127,127,0,127), 1.0f, 0L));
-			FLOAT ColorRGBA[4] = { 127.0f/255.0f, 127.0f/255.0f, 0.0f, 127.0f/255.0f};
-			HW.pDevice->ClearRenderTargetView( rt_Generic_1->pRT, ColorRGBA);
-			RImplementation.r_dsgraph_render_distort	();
-			if (g_pGamePersistent)	g_pGamePersistent->OnRenderPPUI_PP()	;	// PP-UI
+			RImplementation.r_dsgraph_render_distort();
+			if (g_pGamePersistent)	g_pGamePersistent->OnRenderPPUI_PP();	// PP-UI
 		}
 	}
 
@@ -325,7 +330,7 @@ void	CRenderTarget::phase_combine	()
 	// Combine everything + perform AA
    if( RImplementation.o.dx10_msaa )
    {
-	   if		(PP_Complex)	u_setrt		( rt_Generic,0,0,0 );			// LDR RT
+	   if		(PP_Complex)	u_setrt		( rt_Generic,0,0, HW.pBaseZB);			// LDR RT
 	   else					   u_setrt		( Device.dwWidth,Device.dwHeight,HW.pBaseRT,NULL,NULL,HW.pBaseZB);
    }
    else
@@ -553,7 +558,7 @@ void CRenderTarget::phase_combine_volumetric()
    if( !RImplementation.o.dx10_msaa )
    	u_setrt(rt_Generic_0,rt_Generic_1,0,HW.pBaseZB );
    else
-      u_setrt(rt_Generic_0,rt_Generic_1,0,RImplementation.Target->rt_MSAADepth->pZRT );
+      u_setrt(rt_Generic_0_r,rt_Generic_1_r,0,RImplementation.Target->rt_MSAADepth->pZRT );
 	//	Sets limits to both render targets
 	RCache.set_ColorWriteEnable(D3DCOLORWRITEENABLE_RED|D3DCOLORWRITEENABLE_GREEN|D3DCOLORWRITEENABLE_BLUE);
 	{
