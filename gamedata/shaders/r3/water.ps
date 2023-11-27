@@ -25,12 +25,30 @@ TextureCube	s_env1;
 
 Texture2D	s_leaves;
 
+Texture3D	s_ripples; // new
+
 #if defined(USE_SOFT_WATER) && defined(NEED_SOFT_WATER)
 float3	water_intensity;
 #endif	//	defined(USE_SOFT_WATER) && defined(NEED_SOFT_WATER)
 
 ////////////////////////////////////////////////////////////////////////////////
 // Pixel
+
+float3 GetNVNMap(Texture3D s_texture, float2 tc, float time)
+{
+    //	Unpack NVidia normal map
+    float4 water = s_texture.SampleBias(smp_base, float3(tc, time), -3.) - 0.5;
+
+    //	Swizzle
+    water.xyz = water.wyz;
+
+    //	Renormalize (*2) and scale (*3)
+    water.xyz *= 6;
+
+    water.y = 0.1;
+
+    return water.xyz;
+}
 
 #ifdef GBUFFER_OPTIMIZATION
 float4 main( vf I, float4 pos2d : SV_Position ) : SV_Target
@@ -44,12 +62,18 @@ float4 main( vf I ) : SV_Target
 	float4	base= s_base.Sample( smp_base, I.tbase);
 	float3	n0	= s_nmap.Sample( smp_base, I.tnorm0);
 	float3	n1	= s_nmap.Sample( smp_base, I.tnorm1);
-			n0.xy	= n0.xy + (0.5h / 255.0h);
-			n1.xy	= n1.xy + (0.5h / 255.0h);	
+			n0.xy	= n0.xy + (0.5h / 255.0h); // new
+			n1.xy	= n1.xy + (0.5h / 255.0h); // new
 	float3	Navg	= n0 + n1 - 1;
+	
+	float3 waterSplash = GetNVNMap(s_ripples, I.tbase, timers.x); // new
+		
+			Navg += waterSplash; // new
 
 	float3	Nw	= mul (float3x3(I.M1, I.M2, I.M3), Navg);
 			Nw	= normalize (Nw);
+			
+
 	float3	v2point	= normalize (I.v2point);
 	float3	vreflect= reflect(v2point, Nw);
 	//vreflect.y= vreflect.y*2-1;     // fake remapping
